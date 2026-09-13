@@ -1,0 +1,29 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: c++17
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+PointerAlignment: Right
+ReferenceAlignment: Right
+BreakBeforeBraces: Attach
+BreakConstructorInitializers: BeforeComma
+PackConstructorInitializers: Never
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+AlignAfterOpenBracket: Align
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+BinPackParameters: false
+BinPackArguments: false
+SpaceBeforeParens: ControlStatements
+NamespaceIndentation: None
+AccessModifierOffset: -4
+IndentCaseLabels: false
+SortIncludes: false
+KeepEmptyLinesAtTheStartOfBlocks: false
+...
