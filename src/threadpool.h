@@ -17,11 +17,9 @@ using ThreadTask = std::function<void()>;
 
 class ThreadPool {
 public:
-    ThreadPool(const ThreadPool &) = delete;
-    ThreadPool &operator=(const ThreadPool &) = delete;
+    ThreadPool(int kThreadsCount);
     ~ThreadPool();
 
-    static ThreadPool &instance();
     template <typename T, typename Func, typename... Args>
     std::future<T> post(Func &&f, Args &&...args) {
         auto funcTask = std::make_shared<std::packaged_task<T()>>(
@@ -45,7 +43,6 @@ public:
     }
 
 private:
-    ThreadPool();
     void worker_loop();
 
     std::atomic<bool> m_stopFlag{false};

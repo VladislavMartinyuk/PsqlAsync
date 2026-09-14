@@ -3,10 +3,9 @@
 
 using namespace async_psql;
 
-ThreadPool::ThreadPool() {
-    std::size_t kThreads = std::max(std::thread::hardware_concurrency(), 2u);
+ThreadPool::ThreadPool(int kThreadsCount) {
+    int kThreads = std::max(kThreadsCount, 1);
     m_workers.reserve(kThreads);
-
     for (std::size_t i = 0; i < kThreads; ++i) {
         m_workers.emplace_back([this]() { worker_loop(); });
     }
@@ -26,10 +25,6 @@ ThreadPool::~ThreadPool() {
     }
 }
 
-ThreadPool &ThreadPool::instance() {
-    static ThreadPool inst;
-    return inst;
-}
 
 void ThreadPool::worker_loop() {
     while (true) {
