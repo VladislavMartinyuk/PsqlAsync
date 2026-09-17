@@ -28,4 +28,8 @@ void add_db(std::string host,
                                           std::move(connectionsCount));
 }
 
+AsyncSqlAwaitable co_exec(std::string sql, std::string dbName) {
+    return AsyncSqlAwaitable{std::move(sql), std::move(dbName)};
+}
+
 } // namespace async_psql

@@ -37,7 +37,7 @@ Enviroment &Enviroment::setupThreadPool(int kThreadsCount) {
 }
 
 std::optional<std::shared_ptr<ConnectionsPool>>
-Enviroment::getPool(const std::string &dbName) const {
+Enviroment::getDBPool(const std::string &dbName) const {
     std::lock_guard lock(m_mutex);
     if (!m_pools.empty() && !dbName.empty() && m_pools.contains(dbName)) {
         return m_pools.at(dbName);

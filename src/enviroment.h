@@ -24,7 +24,7 @@ public:
                                std::string pass,
                                int connectionsCount);
     Enviroment &setupThreadPool(int kThreadsCount = 1);
-    std::optional<std::shared_ptr<ConnectionsPool>> getPool(const std::string &dbName) const;
+    std::optional<std::shared_ptr<ConnectionsPool>> getDBPool(const std::string &dbName) const;
     std::shared_ptr<ThreadPool> getThreadPool() const;
 
 private:
@@ -32,7 +32,7 @@ private:
 
     mutable std::mutex m_mutex;
     std::unordered_map<std::string, std::shared_ptr<ConnectionsPool>> m_pools;
-    std::shared_ptr<ThreadPool> m_threadPool;
+    std::shared_ptr<ThreadPool> m_threadPool{nullptr};
     std::once_flag m_threadPoolOnceFlag;
 };
 

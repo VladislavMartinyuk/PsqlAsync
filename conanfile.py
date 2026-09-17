@@ -8,6 +8,7 @@ class AsyncPsqlRecipe(ConanFile):
 
     def requirements(self):
         self.requires("libpqxx/8.0.2")
+        self.requires("boost/1.91.0")
 
     def layout(self):
         cmake_layout(self)
