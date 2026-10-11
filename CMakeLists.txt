@@ -17,14 +17,14 @@ add_library(PsqlAsyncLib    src/threadpool.h src/threadpool.cpp
     async_psql/async_psql.cpp
     src/asyncpsqlcoroutine.h )
 
-add_executable(PsqlAsync src/main.cpp)
+#add_executable(PsqlAsync src/main.cpp)
 
 target_link_libraries(PsqlAsyncLib PUBLIC libpqxx::pqxx Boost::boost)
 target_include_directories(PsqlAsyncLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/async_psql)
-target_link_libraries(PsqlAsync PRIVATE PsqlAsyncLib)
+#target_link_libraries(PsqlAsync PRIVATE PsqlAsyncLib)
 
-include(GNUInstallDirs)
-install(TARGETS PsqlAsync
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
+#include(GNUInstallDirs)
+#install(TARGETS PsqlAsync
+#    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+#)

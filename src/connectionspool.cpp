@@ -9,10 +9,12 @@ using namespace async_psql;
 ConnectionsPool::ConnectionsPool(std::size_t kConnectionsCount, std::string connectionStr) {
     std::vector<std::future<std::unique_ptr<pqxx::connection>>> newConnections;
     newConnections.reserve(kConnectionsCount);
+    std::cout << "Try create connection pool to: " << connectionStr << std::endl;
     for (int i = 0; i < kConnectionsCount; i++) {
         newConnections.emplace_back(std::async(std::launch::async, [&connectionStr]() {
             try {
                 auto connection = std::make_unique<pqxx::connection>(connectionStr);
+                std::cout << "Success connected to db" << std::endl;
                 return connection;
             } catch (std::exception &e) {
                 std::cerr << "PSQL connect error: " << e.what() << std::endl;

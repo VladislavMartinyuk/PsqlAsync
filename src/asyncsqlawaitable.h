@@ -44,10 +44,12 @@ public:
     template <typename CompletionToken> auto async_dispatch(CompletionToken &&token) {
         return boost::asio::async_initiate<CompletionToken, void(std::optional<pqxx::result>)>(
             [sql = m_sqlQuery, dbName = m_dbName](auto handler) mutable {
+                auto executor = boost::asio::get_associated_executor(handler);
                 auto pool = Enviroment::instance().getThreadPool();
                 pool->post<void>([sql = std::move(sql),
                                   dbName = std::move(dbName),
-                                  handler = std::move(handler)]() mutable {
+                                  handler = std::move(handler),
+                                  executor]() mutable {
                     std::optional<pqxx::result> res = std::nullopt;
                     auto dbPool = Enviroment::instance().getDBPool(dbName);
 
@@ -66,8 +68,11 @@ public:
                                   << "'\n";
                     }
 
-                    // Передаем результат дальше в Asio handler
-                    std::move(handler)(res);
+                    boost::asio::post(
+                        executor,
+                        [res = std::move(res), handler = std::move(handler)]() mutable {
+                            std::move(handler)(std::move(res));
+                        });
                 });
             },
             token);
