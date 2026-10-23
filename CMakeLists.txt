@@ -9,13 +9,14 @@ find_package(libpqxx CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
 
 add_library(PsqlAsyncLib    src/threadpool.h src/threadpool.cpp
-    src/asyncsqlawaitable.h
     src/connectionspool.h src/connectionspool.cpp
-    src/enviroment.h src/enviroment.cpp
+    src/config.h src/config.cpp
+    src/params.h
+    src/asyncrun.h
+    src/transaction.h src/transaction.cpp
+    src/database.h src/database.cpp
     src/shared.h
-    async_psql/async_psql.h
-    async_psql/async_psql.cpp
-    src/asyncpsqlcoroutine.h )
+    async_psql/async_psql.h )
 
 #add_executable(PsqlAsync src/main.cpp)
 

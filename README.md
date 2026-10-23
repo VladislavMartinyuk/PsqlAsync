@@ -8,142 +8,142 @@
 
 ## ✨ Ключевые возможности
 
-* **C++20 Coroutines**: Из коробки поддерживается удобный синтаксис `co_await`.
-* **Интеграция с Boost.Asio**: Готовый CompletionToken `async_psql::asio_exec` для использования внутри `boost::asio::awaitable`.
-* **Пул подключений (Connections Pool)**: Автоматическое распределение, переиспользование и потокобезопасный выбор подключений.
-* **Поддержка нескольких БД**: Возможность параллельной работы с несколькими базами данных по их текстовым именам/алиасам.
-* **Собственный ThreadPool**: Выполнение транзакций `pqxx::work` в изолированном пуле рабочих потоков.
+* **C++20 Coroutines**: `co_await db.exec(...)` внутри `boost::asio::awaitable`.
+* **Любой completion token Asio**: `use_awaitable`, `as_tuple`, `use_future`, `deferred` или обычный колбэк.
+* **Ошибки как исключения**: `pqxx::sql_error` и его наследники долетают до `co_await`.
+* **Параметризованные запросы**: значения передаются отдельно от текста SQL, без SQL-инъекций.
+* **Транзакции**: несколько запросов на одном соединении, автоматический откат, если не было `commit()`.
+* **Пул подключений**: RAII-аренда соединений и автоматическое переподключение после обрыва.
+* **Несколько БД**: каждый объект `Database` — отдельная база со своим пулом.
 
 ## 📦 Зависимости
 
-Для сборки и работы библиотеки требуется:
 * Компилятор с поддержкой **C++20** (GCC 10+, Clang 11+, MSVC 2019+)
-* **Boost** (компонент `asio`)
-* **libpqxx**
+* **CMake** 3.16+
+* **Boost** 1.80+ (компонент `asio`)
+* **libpqxx** 7.9+ / 8.x
 * **libpq** (системная библиотека C для PostgreSQL)
 
 ---
 
 ## 🚀 Быстрый старт
 
-### 🛠 Инициализация библиотеки
-
-Перед выполнением запросов необходимо настроить размер пула потоков и добавить параметры подключения к базе данных:
-
 ```cpp
-#include "async_psql.h"
-
-int main() {
-    // 1. Устанавливаем количество потоков для исполнения SQL-запросов
-    async_psql::set_thread_pool_size(std::thread::hardware_concurrency());
-
-    // 2. Регистрируем БД: Host, Port, DBName, User, Password, connectionsCount
-    async_psql::add_db("127.0.0.1", "5432", "spl_db", "spl_user", "spl_uav_system", 5);
-
-    return 0;
-}
-
-```
-
-## Примеры использования
-
-# Использование с Boost.Asio (asio_exec)
-
-Этот способ предпочтителен для сетевых служб, асинхронных серверов и веб-приложений на базе Boost.Asio.
-
-```cpp
-#include <iostream>
 #include <boost/asio.hpp>
 #include "async_psql.h"
 
 namespace asio = boost::asio;
 
-// Асинхронная задача Boost.Asio
-asio::awaitable<std::optional<pqxx::result>> coroSqlTask(const std::string &sql,
-                                                         const std::string &dbName = "") {
-    // Асинхронно выполняем запрос к БД без блокировки io_context
-    std::optional<pqxx::result> result = co_await async_psql::asio_exec(sql, dbName);
-    std::cout << "Запрос успешно выполнен!" << std::endl;
-    co_return result;
+asio::awaitable<void> run(async_psql::Database db) {
+    auto rows = co_await db.exec("SELECT id, name FROM users WHERE age > $1", 18);
+    for (auto row : rows) {
+        std::cout << row["id"].as<int>() << " " << row["name"].c_str() << "\n";
+    }
 }
 
 int main() {
     asio::io_context io_ctx;
 
-    // Настройка окружения
-    int threadsCount = std::thread::hardware_concurrency();
-    async_psql::set_thread_pool_size(threadsCount);
-    async_psql::add_db("127.0.0.1", "5432", "spl_db", "spl_user", "spl_uav_system");
+    async_psql::Database db{io_ctx.get_executor(),
+                            {.host = "127.0.0.1",
+                             .port = 5432,
+                             .dbname = "spl_db",
+                             .user = "spl_user",
+                             .password = "secret",
+                             .pool_size = 4}};
 
-    // Спавн корутины
-    asio::co_spawn(
-        io_ctx,
-        []() -> asio::awaitable<void> {
-            auto res = co_await coroSqlTask(
-                "SELECT pid, usename, datname, state, query, "
-                "age(clock_timestamp(), query_start) AS duration "
-                "FROM pg_stat_activity "
-                "WHERE state != 'idle';",
-                "spl_db");
-
-            if (res.has_value()) {
-                std::cout << "Получено строк из БД: " << res->size() << std::endl;
-            }
-        },
-        asio::detached);
-
-    // Запуск цикла событий
+    asio::co_spawn(io_ctx, run(db), asio::detached);
     io_ctx.run();
-
-    return 0;
 }
 ```
 
-# Использование вне Boost.Asio (co_exec и AsyncPsqlCoroutine)
+`Database` — лёгкий копируемый дескриптор: копии используют один и тот же пул соединений и пул потоков. Передавайте его в корутины по значению. Если нужна вторая база данных, создайте второй объект `Database`.
 
-Если вам нужно использовать корутины без контекста Boost.Asio (например, в синхронном CLI-приложении), библиотека предоставляет обёртку AsyncPsqlCoroutine.
+### Config
+
+| Поле        | По умолчанию  | Смысл                                                    |
+|-------------|---------------|----------------------------------------------------------|
+| `host`      | `"127.0.0.1"` |                                                          |
+| `port`      | `5432`        |                                                          |
+| `dbname`    |               |                                                          |
+| `user`      |               |                                                          |
+| `password`  |               | Любые символы, значения экранируются                     |
+| `pool_size` | `1`           | Количество соединений                                    |
+| `threads`   | `0`           | Рабочие потоки; `0` — по одному на соединение            |
+
+## 🛡 Параметризованные запросы
+
+Никогда не подставляйте пользовательские данные в текст запроса конкатенацией. Используйте плейсхолдеры `$1, $2, ...` и передавайте значения отдельными аргументами — они уходят в PostgreSQL отдельно от текста запроса и не интерпретируются как SQL:
 
 ```cpp
-
-#include <iostream>
-#include "async_psql.h"
-#include "asyncpsqlcoroutine.h"
-
-// Кастомная C++20 корутина
-async_psql::AsyncPsqlCoroutine<pqxx::result> getSystemStats() {
-    std::string sql = "SELECT pid, usename, state FROM pg_stat_activity WHERE state != 'idle';";
-    
-    // Ожидание выполнения запроса
-    std::optional<pqxx::result> res = co_await async_psql::co_exec(sql, "spl_db");
-    
-    if (res.has_value()) {
-        co_return *res;
-    }
-    co_return pqxx::result{};
-}
-
-int main() {
-    async_psql::set_thread_pool_size(2);
-    async_psql::add_db("127.0.0.1", "5432", "spl_db", "spl_user", "spl_uav_system");
-
-    // Запуск корутины
-    auto task = getSystemStats();
-    
-    // Блокирующий забор результата для главного потока
-    std::optional<pqxx::result> result = task.getResult();
-
-    if (result.has_value()) {
-        std::cout << "Строк получено: " << result->size() << std::endl;
-    }
-
-    return 0;
-}
-
+std::string name = request.get("name"); // недоверенные данные
+co_await db.exec("SELECT * FROM users WHERE name = $1 AND age > $2", name, 18);
 ```
 
-## Зависимости
-    1.C++20 compiler (GCC 10+, Clang 11+, MSVC 2019+)
-    2.CMake 3.16+
-    3.libpqxx (C++ PostgreSQL library)
-    4.libpq (PostgreSQL client library)
-    5.Boost 1.70+ with Asio
+Значения копируются при вызове, поэтому можно передавать `std::string_view`, `const char *` и временные объекты. `nullptr`, пустой `std::optional` и нулевой `const char *` передаются как `NULL`.
+
+Имена таблиц и колонок параметризовать нельзя — не берите их из пользовательского ввода (используйте белый список допустимых имён).
+
+## ⚠️ Обработка ошибок
+
+Ошибки SQL и соединения приходят как исключения `libpqxx` прямо в точку `co_await`:
+
+```cpp
+try {
+    co_await db.exec("INSERT INTO users(email) VALUES ($1)", email);
+} catch (const pqxx::unique_violation &) {
+    // такой email уже есть
+} catch (const pqxx::sql_error &e) {
+    std::cerr << e.what() << "\nQuery: " << e.query() << "\n";
+}
+```
+
+Если исключения не нужны, используйте `as_tuple`:
+
+```cpp
+auto [error, rows] = co_await db.async_exec("SELECT 1", {}, asio::as_tuple(asio::use_awaitable));
+if (error) { /* std::exception_ptr */ }
+```
+
+## 🔁 Транзакции
+
+```cpp
+auto tx = co_await db.begin();
+co_await tx.exec("UPDATE accounts SET balance = balance - $1 WHERE id = $2", sum, from);
+co_await tx.exec("UPDATE accounts SET balance = balance + $1 WHERE id = $2", sum, to);
+co_await tx.commit();
+```
+
+* `Transaction` держит одно соединение из пула всё время своей жизни.
+* Если не вызвать `commit()` (например, вылетело исключение), деструктор откатит транзакцию.
+* После `commit()` / `rollback()` соединение сразу возвращается в пул, а дальнейшие запросы через этот объект бросают `std::logic_error`.
+
+> Не вызывайте `db.exec(...)`, пока держите открытую транзакцию, если в пуле одно соединение: запрос будет ждать соединение, которое занято вашей же транзакцией.
+
+## 🎛 Completion tokens
+
+У каждой операции есть две формы:
+
+| Короткая форма (`use_awaitable`)   | Общая форма (любой токен)                      |
+|------------------------------------|------------------------------------------------|
+| `db.exec(sql, args...)`            | `db.async_exec(sql, make_params(args...), token)` |
+| `db.begin()`                       | `db.async_begin(token)`                        |
+| `tx.exec(sql, args...)`            | `tx.async_exec(sql, make_params(args...), token)` |
+| `tx.commit()` / `tx.rollback()`    | `tx.async_commit(token)` / `tx.async_rollback(token)` |
+
+Синхронный вызов без `io_context` (например, в CLI-утилите):
+
+```cpp
+asio::thread_pool callbacks{1};
+async_psql::Database db{callbacks.get_executor(), config};
+
+pqxx::result rows = db.async_exec("SELECT now()", {}, asio::use_future).get();
+```
+
+Колбэк:
+
+```cpp
+db.async_exec("SELECT 1", {}, [](std::exception_ptr error, pqxx::result rows) { ... });
+```
+
+Обработчик вызывается на своём связанном executor'е, а если его нет — на executor'е, переданном в `Database`.
